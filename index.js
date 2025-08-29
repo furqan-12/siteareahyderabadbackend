@@ -6,7 +6,11 @@ import supabase from './config/supabaseclient/supabaseclient.js';
 import nodemailer from 'nodemailer';
 
 const app = express();
-app.use(cors());
+app.use( cors({
+    origin: "https://siteareahyderabadfrontend.vercel.app", // apne frontend ka URL likh
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  }));
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(express.json({ limit: '50mb' }));
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
