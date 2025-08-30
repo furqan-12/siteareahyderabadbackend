@@ -6,8 +6,12 @@ import supabase from './config/supabaseclient/supabaseclient.js';
 import nodemailer from 'nodemailer';
 
 const app = express();
+const allowedOrigins = [
+  "http://localhost:3000", // local testing
+  "https://siteareahyderabadfrontend.vercel.app" // deployed frontend
+];
 app.use( cors({
-    origin: "https://siteareahyderabadfrontend.vercel.app", // apne frontend ka URL likh
+    origin: allowedOrigins, // apne frontend ka URL likh
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   }));
