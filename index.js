@@ -1,15 +1,11 @@
 // server.js
 import express from 'express';
 import cors from 'cors';
-import bodyParser, { urlencoded } from 'body-parser';
+import bodyParser from 'body-parser';
 import supabase from './config/supabaseclient/supabaseclient.js';
 import nodemailer from 'nodemailer';
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({
-  extended:true
-}));
 const allowedOrigins = [
   "http://localhost:3000",
   "https://siteareahyderabadfrontend.vercel.app" 
@@ -19,9 +15,8 @@ app.use( cors({
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   }));
-app.use(bodyParser.json({ limit: '50mb' }));
 app.use(express.json({ limit: '50mb' }));
-app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 
 // login api start from here
