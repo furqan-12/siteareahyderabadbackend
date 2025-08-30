@@ -1,17 +1,21 @@
 // server.js
 import express from 'express';
 import cors from 'cors';
-import bodyParser from 'body-parser';
+import bodyParser, { urlencoded } from 'body-parser';
 import supabase from './config/supabaseclient/supabaseclient.js';
 import nodemailer from 'nodemailer';
 
 const app = express();
+app.use(express.json());
+app.use(express.urlencoded({
+  extended:true
+}));
 const allowedOrigins = [
-  "http://localhost:3000", // local testing
-  "https://siteareahyderabadfrontend.vercel.app" // deployed frontend
+  "http://localhost:3000",
+  "https://siteareahyderabadfrontend.vercel.app" 
 ];
 app.use( cors({
-    origin: allowedOrigins, // apne frontend ka URL likh
+    origin: allowedOrigins, 
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   }));
