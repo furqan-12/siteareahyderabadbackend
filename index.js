@@ -13,7 +13,7 @@ const allowedOrigins = [
   "https://siteareahyderabadfrontend.vercel.app" 
 ];
 app.use( cors({
-    origin: allowedOrigins, 
+    origin: "*", 
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   }));
