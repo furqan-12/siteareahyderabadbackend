@@ -27,6 +27,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;  // ab error nahi aayega
+    console.log("Login attempt:", email);
 
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password required" });
