@@ -6,6 +6,8 @@ import supabase from './config/supabaseclient/supabaseclient.js';
 import nodemailer from 'nodemailer';
 
 const app = express();
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 const allowedOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:5500",
@@ -23,18 +25,29 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // login api start from here
 app.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  });
+  try {
+    const { email, password } = req.body;  // ab error nahi aayega
 
-  if (error) {
-    return res.status(401).json({ message: error.message });
-  } else {
-    return res.status(200).json({ message: 'Login successful', user: data.user });
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password required" });
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      return res.status(401).json({ message: error.message });
+    } else {
+      return res.status(200).json({ message: 'Login successful', user: data.user });
+    }
+  } catch (err) {
+    console.error("Login API Error:", err.message);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
 
 // members apis start from here
 app.post('/add-member', async (req, res) => {
