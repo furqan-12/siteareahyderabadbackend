@@ -4,6 +4,10 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import supabase from './config/supabaseclient/supabaseclient.js';
 import nodemailer from 'nodemailer';
+import dotenv from "dotenv"
+dotenv.config()
+
+const PORT = process.env.PORT || 3000
 
 const app = express();
 app.use(bodyParser.json());
@@ -960,6 +964,6 @@ app.post('/send-contact-email', async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
+app.listen(PORT, () => {
   console.log('🚀 Server running on http://localhost:3000');
 });
