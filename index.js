@@ -26,6 +26,9 @@ app.use( cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+console.log("Supabase URL:", process.env.SUPABASE_URL);
+console.log("Supabase Key (first 10 chars):", process.env.SUPABASE_KEY?.slice(0,10));
+
 
 // login api start from here
 app.post('/login', async (req, res) => {
