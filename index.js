@@ -15,14 +15,23 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const allowedOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:5500",
-  "http://127.0.0.1:5500/",
-  "https://siteareahyderabadfrontend.vercel.app" 
+  "https://siteareahyderabadfrontend.vercel.app"
 ];
-app.use( cors({
-    origin: "*", 
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // allow requests with no origin (like mobile apps or curl)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true,
-  }));
+  })
+);
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
