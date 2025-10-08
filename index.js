@@ -14,9 +14,9 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 const allowedOrigins = [
   "http://127.0.0.1:5500",
-  "http://127.0.0.1:5501/",
+  "http://127.0.0.1:5501",
   "https://siteareahyderabadfrontend.vercel.app",
-  "https://hyderabadsiteassociationtradeandindustry.com/"
+  "https://hyderabadsiteassociationtradeandindustry.com"
 ];
 
 
