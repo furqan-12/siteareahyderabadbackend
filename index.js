@@ -210,8 +210,29 @@ app.delete('/delete-member/:id', async (req, res) => {
 app.put('/update-member/:id', async (req, res) => {
   const memberId = req.params.id;
   const { name, designation, email, phone, company_address, image, image_url } = req.body;
+  // Preserve existing image if frontend doesn't send a new image or an image_url
+  let updated_image_url = image_url; // undefined if not sent
 
-  let updated_image_url = image_url || '';
+  // If neither a new base64 `image` nor an `image_url` was provided, fetch existing image_url
+  if (!image && !image_url) {
+    try {
+      const { data: existingMember, error: fetchError } = await supabase
+        .from('members')
+        .select('image_url')
+        .eq('id', memberId)
+        .single();
+      if (!fetchError && existingMember) {
+        updated_image_url = existingMember.image_url || '';
+      } else {
+        // on fetch error, default to empty string to avoid undefined later
+        updated_image_url = '';
+      }
+    } catch (err) {
+      console.error('Error fetching existing member image_url:', err.message);
+      updated_image_url = '';
+    }
+  }
+
   if (image && image.startsWith('data:image')) {
     try {
       const match = image.match(/^data:image\/(png|jpg|jpeg);base64,/);
