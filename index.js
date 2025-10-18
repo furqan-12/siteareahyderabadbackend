@@ -1056,6 +1056,19 @@ app.post('/send-contact-email', async (req, res) => {
   }
 });
 
+// Return roles for the authenticated user (used to show admin/superadmin on frontend)
+app.get('/my-roles', requireAuth, async (req, res) => {
+  try {
+    // requireAuth middleware attaches req.user and req.roles
+    const user = req.user || null;
+    const roles = req.roles || [];
+    res.status(200).json({ user: { id: user?.id, email: user?.email }, roles });
+  } catch (err) {
+    console.error('Error in /my-roles:', err.message || err);
+    res.status(500).json({ message: 'Server error fetching roles' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log('🚀 Server running on http://localhost:3000');
 });
