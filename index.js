@@ -38,6 +38,62 @@ app.use(
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// ---------- Role based access control middleware ----------
+/**
+ * checkRole(allowedRoles)
+ * - Expects Authorization: Bearer <access_token> header
+ * - allowedRoles: array of roles allowed, e.g. ['admin','superadmin']
+ * - If allowedRoles contains 'any', any authenticated user is allowed
+ */
+const checkRole = (allowedRoles = []) => {
+  return async (req, res, next) => {
+    try {
+      const authHeader = req.headers.authorization || req.headers.Authorization;
+      if (!authHeader) return res.status(401).json({ message: 'Authorization header missing' });
+      const parts = authHeader.split(' ');
+      if (parts.length !== 2 || parts[0] !== 'Bearer') return res.status(401).json({ message: 'Invalid Authorization header format' });
+      const token = parts[1];
+
+      // Validate token and get user
+      const { data: userData, error: userError } = await supabase.auth.getUser(token);
+      if (userError || !userData || !userData.user) return res.status(401).json({ message: 'Invalid or expired token' });
+      const user = userData.user;
+
+      // Fetch roles from user_roles table
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id);
+      if (rolesError) {
+        console.error('Error fetching user roles:', rolesError.message || rolesError);
+        return res.status(500).json({ message: 'Error fetching user roles' });
+      }
+      const roles = (rolesData || []).map(r => r.role);
+
+      // Attach to request for handlers
+      req.user = user;
+      req.roles = roles;
+
+      // If 'any' is allowed, any authenticated user passes
+      if (allowedRoles.includes('any')) return next();
+
+      // Check for allowed role intersection
+      const allowed = roles.some(r => allowedRoles.includes(r));
+      if (!allowed) return res.status(403).json({ message: 'Forbidden: insufficient role' });
+      next();
+    } catch (err) {
+      console.error('checkRole error:', err.message || err);
+      return res.status(500).json({ message: 'Server error validating role' });
+    }
+  };
+};
+
+// helper shorthands
+const requireAdminOrSuper = checkRole(['admin', 'superadmin']);
+const requireSuper = checkRole(['superadmin']);
+const requireAuth = checkRole(['any']);
+
+
 console.log("Supabase URL:", process.env.SUPABASE_URL);
 console.log("Supabase Key (first 10 chars):", process.env.SUPABASE_KEY?.slice(0,10));
 
@@ -70,7 +126,7 @@ app.post('/login', async (req, res) => {
 
 
 // members apis start from here
-app.post('/add-member', async (req, res) => {
+app.post('/add-member', requireAdminOrSuper, async (req, res) => {
   const { name, designation, email, phone, company_address, image } = req.body;
 
   if (!name || !designation || !email || !phone || !company_address) {
@@ -120,7 +176,7 @@ app.post('/add-member', async (req, res) => {
   }
 });
 
-app.get('/getmembers', async (req, res) => {
+app.get('/getmembers', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase.from('members').select('*');
 
@@ -159,7 +215,7 @@ app.get('/getfrontendmembers', async (req, res) => {
 
 
 // toggle member active status
-app.put('/toggle-member-active/:id', async (req, res) => {
+app.put('/toggle-member-active/:id', requireAdminOrSuper, async (req, res) => {
   const memberId = req.params.id;
   const { active } = req.body;
 
@@ -186,7 +242,7 @@ app.put('/toggle-member-active/:id', async (req, res) => {
 });
 
 // In your Node.js backend (e.g., routes or app.js)
-app.delete('/delete-member/:id', async (req, res) => {
+app.delete('/delete-member/:id', requireSuper, async (req, res) => {
   const memberId = req.params.id;
 
   try {
@@ -207,7 +263,7 @@ app.delete('/delete-member/:id', async (req, res) => {
   }
 });
 
-app.put('/update-member/:id', async (req, res) => {
+app.put('/update-member/:id', requireAdminOrSuper, async (req, res) => {
   const memberId = req.params.id;
   const { name, designation, email, phone, company_address, image, image_url } = req.body;
   // Preserve existing image if frontend doesn't send a new image or an image_url
@@ -279,7 +335,7 @@ app.put('/update-member/:id', async (req, res) => {
 
 
 // events  apies start from here
-app.post('/add-event', async (req, res) => {
+app.post('/add-event', requireAdminOrSuper, async (req, res) => {
   const { title, eventdate, image } = req.body;
 
   // ✅ Validate required fields
@@ -326,7 +382,7 @@ app.post('/add-event', async (req, res) => {
   }
 });
 
-app.get('/getevents', async (req, res) => {
+app.get('/getevents', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase.from('events').select('*');
 
@@ -343,7 +399,7 @@ app.get('/getevents', async (req, res) => {
 });
 
 // In your Node.js backend (e.g., routes or app.js)
-app.delete('/delete-event/:id', async (req, res) => {
+app.delete('/delete-event/:id', requireSuper, async (req, res) => {
   const eventId = req.params.id;
 
   try {
@@ -364,7 +420,7 @@ app.delete('/delete-event/:id', async (req, res) => {
   }
 });
 
-app.put('/update-event/:id', async (req, res) => {
+app.put('/update-event/:id', requireAdminOrSuper, async (req, res) => {
   const eventId = req.params.id;
   const { title, eventdate, image, image_url } = req.body;
 
@@ -411,7 +467,7 @@ app.put('/update-event/:id', async (req, res) => {
 
 
 // circular apis start from here
-app.post('/add-circular', async (req, res) => {
+app.post('/add-circular', requireAdminOrSuper, async (req, res) => {
   const { circularno, circularname, circulardate, circularimage } = req.body;
 
   if (!circularno || !circularname || !circulardate) {
@@ -470,7 +526,7 @@ app.post('/add-circular', async (req, res) => {
 });
 // jjjjjjjjjjjjjjjj
 
-app.get('/getcirculars', async (req, res) => {
+app.get('/getcirculars', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabase.from('circulars').select('*');
 
@@ -487,7 +543,7 @@ app.get('/getcirculars', async (req, res) => {
 });
 
 
-app.delete('/delete-circular/:id', async (req, res) => {
+app.delete('/delete-circular/:id', requireSuper, async (req, res) => {
   const circularId = req.params.id;
 
   try {
@@ -509,7 +565,7 @@ app.delete('/delete-circular/:id', async (req, res) => {
 });
 
 
-app.put('/update-circular/:id', async (req, res) => {
+app.put('/update-circular/:id', requireAdminOrSuper, async (req, res) => {
   const circularId = req.params.id;
   const { circularno, circularname, circulardate, circularimage } = req.body;
 
@@ -568,7 +624,7 @@ app.put('/update-circular/:id', async (req, res) => {
 
 
 // All add member apis start from here
-app.post('/add-all-members', async (req, res) => {
+app.post('/add-all-members', requireAdminOrSuper, async (req, res) => {
   const {
     member_code,
     company,
@@ -658,7 +714,7 @@ app.post('/add-all-members', async (req, res) => {
   }
 });
 
-app.get('/get-all-members',async(req,res)=>{
+app.get('/get-all-members', requireAuth, async(req,res)=>{
   try {
     const {data , error} = await supabase.from('allmembers').select('*'); 
     if (error){
@@ -678,7 +734,7 @@ app.get('/get-all-members',async(req,res)=>{
   }
 })
 
-app.put('/update-all-members/:id', async (req, res) => {
+app.put('/update-all-members/:id', requireAdminOrSuper, async (req, res) => {
   const { id } = req.params;
   const {
     member_code,
@@ -770,7 +826,7 @@ app.put('/update-all-members/:id', async (req, res) => {
   }
 });
 
-app.delete('/delete-all-members/:id',async(req,res)=>{
+app.delete('/delete-all-members/:id', requireSuper, async(req,res)=>{
 
   const memberId = req.params.id;
   try {
@@ -794,7 +850,7 @@ app.delete('/delete-all-members/:id',async(req,res)=>{
 
 
 // Clean & Green apis start from here
-app.post('/add-clean', async (req, res) => {
+app.post('/add-clean', requireAdminOrSuper, async (req, res) => {
   const { title, image } = req.body;
   let image_url = '';
   if (image) {
@@ -838,7 +894,7 @@ app.post('/add-clean', async (req, res) => {
   }
 });
 
-app.get('/get-clean',async(req,res)=>{
+app.get('/get-clean', requireAuth, async(req,res)=>{
   try {
     const {data ,error} = await supabase.from('clean_green_cards').select('*');
     if(error) {
@@ -858,7 +914,7 @@ app.get('/get-clean',async(req,res)=>{
   }
 })
 
-app.delete('/delete-clean/:id',async(req,res)=>{
+app.delete('/delete-clean/:id', requireSuper, async(req,res)=>{
   const cleanid = req.params.id
   try {
     const {error} = await supabase.from('clean_green_cards').delete().eq('id',cleanid);
@@ -879,7 +935,7 @@ app.delete('/delete-clean/:id',async(req,res)=>{
   }
 })
 
-app.put('/update-clean/:id', async (req, res) => {
+app.put('/update-clean/:id', requireAdminOrSuper, async (req, res) => {
   const updatedcleanid = req.params.id;
   const { title, image, image_url } = req.body;
   let updated_image_url = image_url || '';
@@ -953,7 +1009,7 @@ app.get('/members-categories', async (req, res) => {
 });
 
 
-app.post('/add-categories', async(req,res)=>{
+app.post('/add-categories', requireAdminOrSuper, async(req,res)=>{
   const {name} = req.body;
   try {
     const {data,error} = await supabase.from('categories').insert([{name}]);
