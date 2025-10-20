@@ -98,11 +98,22 @@ console.log("Supabase URL:", process.env.SUPABASE_URL);
 console.log("Supabase Key (first 10 chars):", process.env.SUPABASE_KEY?.slice(0,10));
 
 
+// Token validation helper
+const validateToken = async (token) => {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    return { isValid: !error && user, user };
+  } catch (err) {
+    console.error('Token validation error:', err);
+    return { isValid: false, user: null };
+  }
+};
+
 // login api start from here
 app.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;  // ab error nahi aayega
-    console.log("Login attempt:", email);
+    const { email, password } = req.body;
+    console.log("Login attempt for:", email);
 
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password required" });
@@ -114,14 +125,70 @@ app.post('/login', async (req, res) => {
     });
 
     if (error) {
-      return res.status(401).json({ message: error.message });
-    } else {
-      // Return both user and session info (including access_token) so frontend can call protected endpoints
-      return res.status(200).json({ message: 'Login successful', user: data.user, session: data.session });
+      console.error("Login failed:", error.message);
+      return res.status(401).json({ 
+        message: error.message,
+        code: error.status
+      });
     }
+
+    // Validate session
+    if (!data?.session?.access_token) {
+      console.error("No access token in session");
+      return res.status(500).json({ message: "Login successful but no access token received" });
+    }
+
+    console.log("Login successful for:", email);
+    
+    // Return session with clear token information
+    return res.status(200).json({ 
+      message: 'Login successful',
+      user: data.user,
+      session: {
+        access_token: data.session.access_token,
+        expires_at: data.session.expires_at,
+        refresh_token: data.session.refresh_token
+      }
+    });
   } catch (err) {
     console.error("Login API Error:", err.message);
     return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// Refresh token endpoint
+app.post('/refresh-token', async (req, res) => {
+  try {
+    const { refresh_token } = req.body;
+    
+    if (!refresh_token) {
+      return res.status(400).json({ message: "Refresh token required" });
+    }
+
+    const { data, error } = await supabase.auth.refreshSession({
+      refresh_token
+    });
+
+    if (error) {
+      console.error("Token refresh failed:", error.message);
+      return res.status(401).json({ message: error.message });
+    }
+
+    if (!data?.session) {
+      return res.status(401).json({ message: "Could not refresh session" });
+    }
+
+    return res.status(200).json({
+      message: 'Token refreshed successfully',
+      session: {
+        access_token: data.session.access_token,
+        expires_at: data.session.expires_at,
+        refresh_token: data.session.refresh_token
+      }
+    });
+  } catch (err) {
+    console.error("Token refresh error:", err.message);
+    return res.status(500).json({ message: "Error refreshing token" });
   }
 });
 
