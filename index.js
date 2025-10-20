@@ -116,7 +116,8 @@ app.post('/login', async (req, res) => {
     if (error) {
       return res.status(401).json({ message: error.message });
     } else {
-      return res.status(200).json({ message: 'Login successful', user: data.user });
+      // Return both user and session info (including access_token) so frontend can call protected endpoints
+      return res.status(200).json({ message: 'Login successful', user: data.user, session: data.session });
     }
   } catch (err) {
     console.error("Login API Error:", err.message);
@@ -176,7 +177,7 @@ app.post('/add-member', requireAdminOrSuper, async (req, res) => {
   }
 });
 
-app.get('/getmembers', requireAuth, async (req, res) => {
+app.get('/getmembers', async (req, res) => {
   try {
     const { data, error } = await supabase.from('members').select('*');
 
@@ -382,7 +383,7 @@ app.post('/add-event', requireAdminOrSuper, async (req, res) => {
   }
 });
 
-app.get('/getevents', requireAuth, async (req, res) => {
+app.get('/getevents', async (req, res) => {
   try {
     const { data, error } = await supabase.from('events').select('*');
 
@@ -526,7 +527,7 @@ app.post('/add-circular', requireAdminOrSuper, async (req, res) => {
 });
 // jjjjjjjjjjjjjjjj
 
-app.get('/getcirculars', requireAuth, async (req, res) => {
+app.get('/getcirculars', async (req, res) => {
   try {
     const { data, error } = await supabase.from('circulars').select('*');
 
@@ -714,7 +715,7 @@ app.post('/add-all-members', requireAdminOrSuper, async (req, res) => {
   }
 });
 
-app.get('/get-all-members', requireAuth, async(req,res)=>{
+app.get('/get-all-members', async(req,res)=>{
   try {
     const {data , error} = await supabase.from('allmembers').select('*'); 
     if (error){
@@ -732,7 +733,8 @@ app.get('/get-all-members', requireAuth, async(req,res)=>{
       message:"Internal server Error."
     })
   }
-})
+
+});
 
 app.put('/update-all-members/:id', requireAdminOrSuper, async (req, res) => {
   const { id } = req.params;
@@ -751,9 +753,8 @@ app.put('/update-all-members/:id', requireAdminOrSuper, async (req, res) => {
     email,
     website,
     join_date,
-    active,
-    file_url,
-    name,
+  active,
+  name,
     designation,
     companyaddress,
     image // base64 string
@@ -894,7 +895,7 @@ app.post('/add-clean', requireAdminOrSuper, async (req, res) => {
   }
 });
 
-app.get('/get-clean', requireAuth, async(req,res)=>{
+app.get('/get-clean', async(req,res)=>{
   try {
     const {data ,error} = await supabase.from('clean_green_cards').select('*');
     if(error) {
