@@ -1070,6 +1070,157 @@ app.get('/my-roles', requireAuth, async (req, res) => {
   }
 });
 
+
+// --- Member-Category Assignment APIs ---
+// Assign categories to members (bulk)
+app.post('/assign-categories-to-members', requireAdminOrSuper, async (req, res) => {
+  // Expects: { memberIds: [1,2,3], categoryId: 5 }
+  const { memberIds, categoryId } = req.body;
+  if (!Array.isArray(memberIds) || !categoryId) {
+    return res.status(400).json({ message: 'memberIds (array) and categoryId are required' });
+  }
+  try {
+    // Remove existing assignments for these members (optional, or allow multiple categories per member)
+    // await supabase.from('member_categories').delete().in('member_id', memberIds);
+
+    // Insert new assignments (ignore duplicates)
+    const inserts = memberIds.map(member_id => ({ member_id, category_id: categoryId }));
+    // Upsert (if supported) or insert, ignoring duplicates
+    const { data, error } = await supabase.from('member_categories').upsert(inserts, { onConflict: ['member_id', 'category_id'] });
+    if (error) {
+      return res.status(500).json({ message: 'Error assigning categories: ' + error.message });
+    }
+    res.status(200).json({ message: 'Categories assigned successfully', data });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Get all members for a category
+app.get('/members-by-category/:categoryId', requireAuth, async (req, res) => {
+  const { categoryId } = req.params;
+  try {
+    // Join allmembers with member_categories
+    const { data, error } = await supabase
+      .from('member_categories')
+      .select('member_id, allmembers(*)')
+      .eq('category_id', categoryId);
+    if (error) {
+      return res.status(500).json({ message: 'Error fetching members: ' + error.message });
+    }
+    // Flatten to just member objects
+    const members = (data || []).map(row => row.allmembers);
+    res.status(200).json({ members });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Get all categories for a member
+app.get('/categories-by-member/:memberId', requireAuth, async (req, res) => {
+  const { memberId } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('member_categories')
+      .select('category_id, categories(*)')
+      .eq('member_id', memberId);
+    if (error) {
+      return res.status(500).json({ message: 'Error fetching categories: ' + error.message });
+    }
+    const categories = (data || []).map(row => row.categories);
+    res.status(200).json({ categories });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// -------------------- Industries APIs --------------------
+// Add new industry (admin/super only)
+app.post('/add-industry', requireAdminOrSuper, async (req, res) => {
+  const { name, icon } = req.body;
+  if (!name) return res.status(400).json({ message: 'Industry name is required' });
+  try {
+    const { data, error } = await supabase.from('industries').insert([{ name, icon }]);
+    if (error) {
+      console.error('Supabase error (add-industry):', error);
+      return res.status(500).json({ message: error.message });
+    }
+    res.status(200).json({ message: 'Industry added successfully', industry: data && data[0] });
+  } catch (err) {
+    console.error('Server error (add-industry):', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Get all industries (public — used by frontend homepage)
+app.get('/get-industries', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('industries').select('*');
+    if (error) {
+      console.error('Supabase error (get-industries):', error);
+      return res.status(500).json({ message: error.message });
+    }
+    res.status(200).json({ industries: data });
+  } catch (err) {
+    console.error('Server error (get-industries):', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Update industry (admin/super only)
+app.put('/update-industry/:id', requireAdminOrSuper, async (req, res) => {
+  const { id } = req.params;
+  const { name, icon } = req.body;
+  if (!name && typeof icon === 'undefined') return res.status(400).json({ message: 'Nothing to update' });
+  try {
+    const updates = {};
+    if (name) updates.name = name;
+    if (typeof icon !== 'undefined') updates.icon = icon;
+    const { data, error } = await supabase.from('industries').update(updates).eq('id', parseInt(id));
+    if (error) {
+      console.error('Supabase error (update-industry):', error);
+      return res.status(500).json({ message: error.message });
+    }
+    res.status(200).json({ message: 'Industry updated successfully', industry: data && data[0] });
+  } catch (err) {
+    console.error('Server error (update-industry):', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Delete industry (super only)
+app.delete('/delete-industry/:id', requireSuper, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { error } = await supabase.from('industries').delete().eq('id', parseInt(id));
+    if (error) {
+      console.error('Supabase error (delete-industry):', error);
+      return res.status(500).json({ message: error.message });
+    }
+    res.status(200).json({ message: 'Industry deleted successfully' });
+  } catch (err) {
+    console.error('Server error (delete-industry):', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Get members by industry (public — used by homepage clicks)
+app.get('/get-members-by-industry/:industry_id', async (req, res) => {
+  const industryId = parseInt(req.params.industry_id);
+  if (Number.isNaN(industryId)) return res.status(400).json({ message: 'Invalid industry id' });
+  try {
+    const { data, error } = await supabase.from('allmembers').select('*').eq('industry_id', industryId);
+    if (error) {
+      console.error('Supabase error (get-members-by-industry):', error);
+      return res.status(500).json({ message: error.message });
+    }
+    res.status(200).json({ members: data });
+  } catch (err) {
+    console.error('Server error (get-members-by-industry):', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log('🚀 Server running on http://localhost:3000');
 });
