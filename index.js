@@ -625,6 +625,95 @@ app.put('/update-circular/:id', requireAdminOrSuper, async (req, res) => {
 
 
 // All add member apis start from here
+// app.post('/add-all-members', requireAdminOrSuper, async (req, res) => {
+//   const {
+//     member_code,
+//     company,
+//     first_name,
+//     last_name,
+//     office_address,
+//     office_address_doc,
+//     nature_of_business,
+//     phoneno,
+//     company_ntn,
+//     sales_tax_reg,
+//     fax_no,
+//     email,
+//     website,
+//     join_date,
+//     active,
+//     name,
+//     designation,
+//     companyaddress,
+//     image // base64 string
+//   } = req.body;
+
+//   let file_url = req.body.file_url || '';
+//   // If image base64 string is sent, upload to Supabase
+//   if (image) {
+//     try {
+//       // Remove base64 header if present
+//       const base64Data = image.replace(/^data:image\/(png|jpg|jpeg);base64,/, "");
+//       const buffer = Buffer.from(base64Data, 'base64');
+//       const ext = '.jpg'; // You can detect extension from base64 header if needed
+//       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2,8)}${ext}`;
+//       const { data: uploadData, error: uploadError } = await supabase.storage
+//         .from('members-images')
+//         .upload(fileName, buffer, {
+//           contentType: 'image/jpeg'
+//         });
+//       if (uploadError) {
+//         return res.status(500).json({ message: 'Image upload failed: ' + uploadError.message });
+//       }
+//       const { data: publicUrlData } = supabase.storage
+//         .from('members-images')
+//         .getPublicUrl(fileName);
+//       file_url = publicUrlData.publicUrl;
+//     } catch (err) {
+//       return res.status(500).json({ message: 'Image upload error: ' + err.message });
+//     }
+//   }
+
+//   try {
+//     const { data, error } = await supabase
+//       .from('allmembers')
+//       .insert([{
+//         member_code,
+//         company,
+//         first_name,
+//         last_name,
+//         office_address,
+//         office_address_doc,
+//         nature_of_business,
+//         phoneno,
+//         company_ntn,
+//         sales_tax_reg,
+//         fax_no,
+//         email,
+//         website,
+//         join_date,
+//         active,
+//         file_url,
+//         name,
+//         designation,
+//         companyaddress
+//       }]);
+
+//     if (error) {
+//       console.error("Supabase error", error);
+//       return res.status(500).json({ message: error.message });
+//     }
+
+//     res.status(200).json({
+//       message: "Member added successfully",
+//       member: data && data[0]
+//     });
+
+//   } catch (err) {
+//     console.error("Server error", err);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// });
 app.post('/add-all-members', requireAdminOrSuper, async (req, res) => {
   const {
     member_code,
@@ -645,29 +734,34 @@ app.post('/add-all-members', requireAdminOrSuper, async (req, res) => {
     name,
     designation,
     companyaddress,
-    image // base64 string
+    image, // base64 string
+    industry_id // 👈 new field added here
   } = req.body;
 
   let file_url = req.body.file_url || '';
-  // If image base64 string is sent, upload to Supabase
+
+  // ✅ Upload image to Supabase if provided
   if (image) {
     try {
-      // Remove base64 header if present
       const base64Data = image.replace(/^data:image\/(png|jpg|jpeg);base64,/, "");
       const buffer = Buffer.from(base64Data, 'base64');
-      const ext = '.jpg'; // You can detect extension from base64 header if needed
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2,8)}${ext}`;
+      const ext = '.jpg';
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
+
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('members-images')
         .upload(fileName, buffer, {
           contentType: 'image/jpeg'
         });
+
       if (uploadError) {
         return res.status(500).json({ message: 'Image upload failed: ' + uploadError.message });
       }
+
       const { data: publicUrlData } = supabase.storage
         .from('members-images')
         .getPublicUrl(fileName);
+
       file_url = publicUrlData.publicUrl;
     } catch (err) {
       return res.status(500).json({ message: 'Image upload error: ' + err.message });
@@ -696,7 +790,8 @@ app.post('/add-all-members', requireAdminOrSuper, async (req, res) => {
         file_url,
         name,
         designation,
-        companyaddress
+        companyaddress,
+        industry_id // 👈 inserted into Supabase table
       }]);
 
     if (error) {
@@ -714,6 +809,7 @@ app.post('/add-all-members', requireAdminOrSuper, async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
 
 app.get('/get-all-members', requireAuth, async(req,res)=>{
   try {
@@ -734,6 +830,99 @@ app.get('/get-all-members', requireAuth, async(req,res)=>{
     })
   }
 })
+
+// app.put('/update-all-members/:id', requireAdminOrSuper, async (req, res) => {
+//   const { id } = req.params;
+//   const {
+//     member_code,
+//     company,
+//     first_name,
+//     last_name,
+//     office_address,
+//     office_address_doc,
+//     nature_of_business,
+//     phoneno,
+//     company_ntn,
+//     sales_tax_reg,
+//     fax_no,
+//     email,
+//     website,
+//     join_date,
+//     active,
+//     file_url,
+//     name,
+//     designation,
+//     companyaddress,
+//     image // base64 string
+//   } = req.body;
+
+//   let updated_file_url = file_url || '';
+//   // If image base64 string is sent, upload to Supabase
+//   if (image) {
+//     try {
+//       const base64Data = image.replace(/^data:image\/(png|jpg|jpeg);base64,/, "");
+//       const buffer = Buffer.from(base64Data, 'base64');
+//       const ext = '.jpg';
+//       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2,8)}${ext}`;
+//       const { data: uploadData, error: uploadError } = await supabase.storage
+//         .from('members-images')
+//         .upload(fileName, buffer, {
+//           contentType: 'image/jpeg'
+//         });
+//       if (uploadError) {
+//         return res.status(500).json({ message: 'Image upload failed: ' + uploadError.message });
+//       }
+//       const { data: publicUrlData } = supabase.storage
+//         .from('members-images')
+//         .getPublicUrl(fileName);
+//       updated_file_url = publicUrlData.publicUrl;
+//     } catch (err) {
+//       return res.status(500).json({ message: 'Image upload error: ' + err.message });
+//     }
+//   }
+
+//   try {
+//     const { data, error } = await supabase
+//       .from('allmembers')
+//       .update({
+//         member_code,
+//         company,
+//         first_name,
+//         last_name,
+//         office_address,
+//         office_address_doc,
+//         nature_of_business,
+//         phoneno,
+//         company_ntn,
+//         sales_tax_reg,
+//         fax_no,
+//         email,
+//         website,
+//         join_date,
+//         active,
+//         file_url: updated_file_url,
+//         name,
+//         designation,
+//         companyaddress
+//       })
+//       .eq('id', parseInt(id)); // Ensure ID is a number
+
+//     if (error) {
+//       console.error("Supabase error:", error);
+//       return res.status(500).json({ message: error.message });
+//     }
+
+//     res.status(200).json({
+//       message: "Member updated successfully",
+//       member: data && data[0] ? data[0] : null
+//     });
+
+//   } catch (err) {
+//     console.error("Update error:", err);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// });
+
 
 app.put('/update-all-members/:id', requireAdminOrSuper, async (req, res) => {
   const { id } = req.params;
@@ -757,28 +946,34 @@ app.put('/update-all-members/:id', requireAdminOrSuper, async (req, res) => {
     name,
     designation,
     companyaddress,
-    image // base64 string
+    image, // base64 string
+    industry_id // 👈 new field added
   } = req.body;
 
   let updated_file_url = file_url || '';
-  // If image base64 string is sent, upload to Supabase
+
+  // ✅ Upload new image if base64 provided
   if (image) {
     try {
       const base64Data = image.replace(/^data:image\/(png|jpg|jpeg);base64,/, "");
       const buffer = Buffer.from(base64Data, 'base64');
       const ext = '.jpg';
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2,8)}${ext}`;
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
+
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('members-images')
         .upload(fileName, buffer, {
           contentType: 'image/jpeg'
         });
+
       if (uploadError) {
         return res.status(500).json({ message: 'Image upload failed: ' + uploadError.message });
       }
+
       const { data: publicUrlData } = supabase.storage
         .from('members-images')
         .getPublicUrl(fileName);
+
       updated_file_url = publicUrlData.publicUrl;
     } catch (err) {
       return res.status(500).json({ message: 'Image upload error: ' + err.message });
@@ -807,9 +1002,10 @@ app.put('/update-all-members/:id', requireAdminOrSuper, async (req, res) => {
         file_url: updated_file_url,
         name,
         designation,
-        companyaddress
+        companyaddress,
+        industry_id // 👈 included in update
       })
-      .eq('id', parseInt(id)); // Ensure ID is a number
+      .eq('id', parseInt(id)); // make sure id is numeric
 
     if (error) {
       console.error("Supabase error:", error);
@@ -826,6 +1022,9 @@ app.put('/update-all-members/:id', requireAdminOrSuper, async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+
+
 
 app.delete('/delete-all-members/:id', requireSuper, async(req,res)=>{
 
