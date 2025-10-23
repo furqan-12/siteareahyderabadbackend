@@ -1022,7 +1022,7 @@ app.put('/update-all-members/:id', requireAdminOrSuper, async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
-
+// here apis end update api
 
 
 
