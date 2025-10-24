@@ -383,7 +383,7 @@ app.post('/add-event', requireAdminOrSuper, async (req, res) => {
   }
 });
 
-app.get('/getevents', requireAuth, async (req, res) => {
+app.get('/getevents', async (req, res) => {
   try {
     const { data, error } = await supabase.from('events').select('*');
 
@@ -527,7 +527,7 @@ app.post('/add-circular', requireAdminOrSuper, async (req, res) => {
 });
 // jjjjjjjjjjjjjjjj
 
-app.get('/getcirculars', requireAuth, async (req, res) => {
+app.get('/getcirculars',async (req, res) => {
   try {
     const { data, error } = await supabase.from('circulars').select('*');
 
@@ -811,7 +811,7 @@ app.post('/add-all-members', requireAdminOrSuper, async (req, res) => {
 });
 
 
-app.get('/get-all-members', requireAuth, async(req,res)=>{
+app.get('/get-all-members', async(req,res)=>{
   try {
     const {data , error} = await supabase.from('allmembers').select('*'); 
     if (error){
@@ -1094,7 +1094,7 @@ app.post('/add-clean', requireAdminOrSuper, async (req, res) => {
   }
 });
 
-app.get('/get-clean', requireAuth, async(req,res)=>{
+app.get('/get-clean', async(req,res)=>{
   try {
     const {data ,error} = await supabase.from('clean_green_cards').select('*');
     if(error) {
