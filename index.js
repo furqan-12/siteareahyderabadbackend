@@ -177,7 +177,7 @@ app.post('/add-member', requireAdminOrSuper, async (req, res) => {
   }
 });
 
-app.get('/getmembers', requireAuth, async (req, res) => {
+app.get('/getmembers', async (req, res) => {
   try {
     const { data, error } = await supabase.from('members').select('*');
 
