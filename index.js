@@ -117,6 +117,7 @@ app.post('/login', async (req, res) => {
       return res.status(401).json({ message: error.message });
     } else {
       // Return both user and session info (including access_token) so frontend can call protected endpoints
+      console.log("Login success, session:", data.session);
       return res.status(200).json({ message: 'Login successful', user: data.user, session: data.session });
     }
   } catch (err) {
