@@ -1421,6 +1421,134 @@ app.get('/get-members-by-industry/:industry_id', async (req, res) => {
   }
 });
 
+
+
+
+// ==========================
+// PRESS RELEASE APIs
+// ==========================
+
+// CREATE Press Release
+app.post('/add-pressrelease', requireAdminOrSuper, async (req, res) => {
+  const { title, pressdate, image } = req.body;
+
+  if (!title || !pressdate) {
+    return res.status(400).json({ message: "All fields except image are required." });
+  }
+
+  let image_url = '';
+  if (image) {
+    try {
+      const base64Data = image.replace(/^data:image\/(png|jpg|jpeg);base64,/, "");
+      const buffer = Buffer.from(base64Data, 'base64');
+      const ext = '.jpg';
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2,8)}${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('pressrelease-images')
+        .upload(fileName, buffer, { contentType: 'image/jpeg' });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from('pressrelease-images')
+        .getPublicUrl(fileName);
+
+      image_url = publicUrlData.publicUrl;
+    } catch (err) {
+      return res.status(500).json({ message: 'Image upload error: ' + err.message });
+    }
+  }
+
+  try {
+    const { data, error } = await supabase.from('pressrelease').insert([
+      { title, pressdate, image_url }
+    ]);
+    if (error) throw error;
+
+    res.status(201).json({ message: 'Press release added successfully', pressrelease: data[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Internal server error: " + err.message });
+  }
+});
+
+
+// READ all Press Releases
+app.get('/get-pressrelease', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('pressrelease').select('*').order('id', { ascending: false });
+    if (error) throw error;
+
+    res.status(200).json({ pressreleases: data });
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching press releases: ' + err.message });
+  }
+});
+
+
+// UPDATE Press Release
+app.put('/update-pressrelease/:id', requireAdminOrSuper, async (req, res) => {
+  const pressId = req.params.id;
+  const { title, pressdate, image, image_url } = req.body;
+
+  let updated_image_url = image_url || '';
+
+  if (image) {
+    try {
+      const base64Data = image.replace(/^data:image\/(png|jpg|jpeg);base64,/, "");
+      const buffer = Buffer.from(base64Data, 'base64');
+      const ext = '.jpg';
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2,8)}${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('pressrelease-images')
+        .upload(fileName, buffer, { contentType: 'image/jpeg' });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from('pressrelease-images')
+        .getPublicUrl(fileName);
+
+      updated_image_url = publicUrlData.publicUrl;
+    } catch (err) {
+      return res.status(500).json({ message: 'Image upload error: ' + err.message });
+    }
+  }
+
+  try {
+    const { error } = await supabase
+      .from('pressrelease')
+      .update({ title, pressdate, image_url: updated_image_url })
+      .eq('id', pressId);
+
+    if (error) throw error;
+
+    res.status(200).json({ message: 'Press release updated successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error updating press release: ' + err.message });
+  }
+});
+
+
+// DELETE Press Release
+app.delete('/delete-pressrelease/:id', requireSuper, async (req, res) => {
+  const pressId = req.params.id;
+
+  try {
+    const { error } = await supabase.from('pressrelease').delete().eq('id', pressId);
+    if (error) throw error;
+
+    res.status(200).json({ message: 'Press release deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error deleting press release: ' + err.message });
+  }
+});
+
+
+
+
 app.listen(PORT, () => {
   console.log('🚀 Server running on http://localhost:3000');
 });
