@@ -1494,12 +1494,13 @@ app.put('/update-pressrelease/:id', requireAdminOrSuper, async (req, res) => {
 
   let updated_image_url = image_url || '';
 
+  // Handle image upload (if new image is provided)
   if (image) {
     try {
       const base64Data = image.replace(/^data:image\/(png|jpg|jpeg);base64,/, "");
       const buffer = Buffer.from(base64Data, 'base64');
       const ext = '.jpg';
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2,8)}${ext}`;
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from('pressrelease-images')
@@ -1518,18 +1519,29 @@ app.put('/update-pressrelease/:id', requireAdminOrSuper, async (req, res) => {
   }
 
   try {
-    const { error } = await supabase
+    // Build update object dynamically
+    const updateData = {};
+    if (title) updateData.title = title;
+    if (pressdate) updateData.pressdate = pressdate;
+    if (updated_image_url) updateData.image_url = updated_image_url;
+
+    const { data, error } = await supabase
       .from('pressrelease')
-      .update({ title, pressdate, image_url: updated_image_url })
-      .eq('id', pressId);
+      .update(updateData)
+      .eq('id', Number(pressId))
+      .select();
 
     if (error) throw error;
 
-    res.status(200).json({ message: 'Press release updated successfully' });
+    res.status(200).json({
+      message: '✅ Press release updated successfully',
+      updated: data
+    });
   } catch (err) {
     res.status(500).json({ message: 'Error updating press release: ' + err.message });
   }
 });
+
 
 
 // DELETE Press Release
