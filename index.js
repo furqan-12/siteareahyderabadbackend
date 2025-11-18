@@ -1,7 +1,6 @@
 // server.js
 import express from 'express';
 import cors from 'cors';
-import bodyParser from 'body-parser';
 import supabase from './config/supabaseclient/supabaseclient.js';
 import nodemailer from 'nodemailer';
 import dotenv from "dotenv"
@@ -10,8 +9,7 @@ dotenv.config()
 const PORT = process.env.PORT || 3000
 
 const app = express();
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+// Removed bodyParser - using express.json/urlencoded instead with 50mb limit
 const allowedOrigins = [
   "http://127.0.0.1:5500",
   "http://127.0.0.1:5501",
