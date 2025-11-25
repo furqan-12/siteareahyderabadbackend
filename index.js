@@ -623,6 +623,154 @@ app.put('/update-circular/:id', requireAdminOrSuper, async (req, res) => {
 // circular apis end here
 
 
+// letters apis start from here
+app.post('/add-letter', requireAdminOrSuper, async (req, res) => {
+  const { lettername, letterdate, letterimage } = req.body;
+
+  if (!lettername || !letterdate) {
+    return res.status(400).json({ message: "Letter name and date are required." });
+  }
+
+  let image_url = '';
+  if (letterimage && letterimage.startsWith('data:image')) {
+    try {
+      const match = letterimage.match(/^data:image\/(png|jpg|jpeg);base64,/);
+      let ext = '.jpg';
+      let contentType = 'image/jpeg';
+      if (match && match[1] === 'png') {
+        ext = '.png';
+        contentType = 'image/png';
+      }
+      const base64Data = letterimage.replace(/^data:image\/(png|jpg|jpeg);base64,/, "");
+      const buffer = Buffer.from(base64Data, 'base64');
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2,8)}${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('letters-images')
+        .upload(fileName, buffer, { contentType });
+      if (uploadError) {
+        return res.status(500).json({ message: 'Attachment upload failed: ' + uploadError.message });
+      }
+      const { data: publicUrlData } = supabase.storage
+        .from('letters-images')
+        .getPublicUrl(fileName);
+      image_url = publicUrlData.publicUrl;
+    } catch (err) {
+      return res.status(500).json({ message: 'Attachment upload error: ' + err.message });
+    }
+  } else if (letterimage) {
+    image_url = letterimage; // already a hosted URL
+  }
+
+  try {
+    const { data, error } = await supabase.from('letters').insert([
+      { lettername, letterdate, letterimage: image_url }
+    ]);
+    if (error) {
+      console.error("Supabase Error:", error);
+      return res.status(500).json({ message: error.message });
+    }
+    return res.status(201).json({ message: 'Letter added successfully', letter: data && data[0] });
+  } catch (err) {
+    console.error("Server Error:", err);
+    return res.status(500).json({ message: "Internal server error." });
+  }
+});
+
+app.get('/getletters', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('letters').select('*').order('letterdate', { ascending: false });
+
+    if (error) {
+      console.error("Supabase Error:", error);
+      return res.status(500).json({ message: error.message });
+    }
+
+    return res.status(200).json({ letters: data });
+  } catch (err) {
+    console.error("Server Error:", err);
+    return res.status(500).json({ message: "Internal server error." });
+  }
+});
+
+app.put('/update-letter/:id', requireAdminOrSuper, async (req, res) => {
+  const letterId = req.params.id;
+  const { lettername, letterdate, letterimage, existing_image_url } = req.body;
+
+  let final_image_url = existing_image_url || '';
+
+  if (letterimage && letterimage.startsWith('data:image')) {
+    try {
+      const match = letterimage.match(/^data:image\/(png|jpg|jpeg);base64,/);
+      let ext = '.jpg';
+      let contentType = 'image/jpeg';
+      if (match && match[1] === 'png') {
+        ext = '.png';
+        contentType = 'image/png';
+      }
+      const base64Data = letterimage.replace(/^data:image\/(png|jpg|jpeg);base64,/, "");
+      const buffer = Buffer.from(base64Data, 'base64');
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2,8)}${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('letters-images')
+        .upload(fileName, buffer, { contentType });
+      if (uploadError) {
+        return res.status(500).json({ message: 'Attachment upload failed: ' + uploadError.message });
+      }
+      const { data: publicUrlData } = supabase.storage
+        .from('letters-images')
+        .getPublicUrl(fileName);
+      final_image_url = publicUrlData.publicUrl;
+    } catch (err) {
+      return res.status(500).json({ message: 'Attachment upload error: ' + err.message });
+    }
+  } else if (letterimage) {
+    final_image_url = letterimage;
+  }
+
+  const updatePayload = {};
+  if (lettername !== undefined) updatePayload.lettername = lettername;
+  if (letterdate !== undefined) updatePayload.letterdate = letterdate;
+  if (final_image_url) updatePayload.letterimage = final_image_url;
+
+  try {
+    const { error } = await supabase
+      .from('letters')
+      .update(updatePayload)
+      .eq('id', letterId);
+    if (error) {
+      console.error('Supabase Error:', error);
+      return res.status(500).json({ message: 'Error updating letter: ' + error.message });
+    }
+    res.status(200).json({ message: 'Letter updated successfully' });
+  } catch (err) {
+    console.error('Server Error:', err);
+    res.status(500).json({ message: 'Server error while updating letter' });
+  }
+});
+
+app.delete('/delete-letter/:id', requireSuper, async (req, res) => {
+  const letterId = req.params.id;
+
+  try {
+    const { error } = await supabase
+      .from('letters')
+      .delete()
+      .eq('id', letterId);
+
+    if (error) {
+      console.error('Supabase Error:', error);
+      return res.status(500).json({ message: 'Error deleting letter: ' + error.message });
+    }
+
+    res.status(200).json({ message: 'Letter deleted successfully' });
+  } catch (err) {
+    console.error('Server Error:', err);
+    res.status(500).json({ message: 'Server error while deleting letter' });
+  }
+});
+// letters apis end here
+
+
 // All add member apis start from here
 // app.post('/add-all-members', requireAdminOrSuper, async (req, res) => {
 //   const {
