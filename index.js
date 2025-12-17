@@ -741,7 +741,7 @@ app.put("/update-circular/:id", requireAdminOrSuper, async (req, res) => {
 
 // letters apis start from here
 app.post("/add-letter", requireAdminOrSuper, async (req, res) => {
-  const { lettername, letterdate, letterimage } = req.body;
+  const { lettername, letterdate, letterimage, letter_type } = req.body;
 
   if (!lettername || !letterdate) {
     return res
@@ -793,7 +793,7 @@ app.post("/add-letter", requireAdminOrSuper, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("letters")
-      .insert([{ lettername, letterdate, letterimage: image_url }]);
+      .insert([{ lettername, letterdate, letterimage: image_url, letter_type }]);
     if (error) {
       console.error("Supabase Error:", error);
       return res.status(500).json({ message: error.message });
@@ -828,7 +828,7 @@ app.get("/getletters", async (req, res) => {
 
 app.put("/update-letter/:id", requireAdminOrSuper, async (req, res) => {
   const letterId = req.params.id;
-  const { lettername, letterdate, letterimage, existing_image_url } = req.body;
+  const { lettername, letterdate, letterimage, existing_image_url, letter_type } = req.body;
 
   let final_image_url = existing_image_url || "";
 
@@ -876,6 +876,7 @@ app.put("/update-letter/:id", requireAdminOrSuper, async (req, res) => {
   if (lettername !== undefined) updatePayload.lettername = lettername;
   if (letterdate !== undefined) updatePayload.letterdate = letterdate;
   if (final_image_url) updatePayload.letterimage = final_image_url;
+  if (letter_type !== undefined) updatePayload.letter_type = letter_type;
 
   try {
     const { error } = await supabase
