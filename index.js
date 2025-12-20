@@ -1134,6 +1134,36 @@ app.get("/get-all-members", async (req, res) => {
   }
 });
 
+// Get all members with their categories (joined)
+app.get("/get-all-members-with-categories", async (req, res) => {
+  try {
+    // Select members and include related member_categories -> categories
+    const { data, error } = await supabase
+      .from("allmembers")
+      .select(`*, member_categories(category_id, categories(*))`);
+
+    if (error) {
+      console.error("Supabase error (get-all-members-with-categories):", error);
+      return res.status(500).json({ message: error.message });
+    }
+
+    // Normalize to attach `categories` as an array of category objects on each member
+    const members = (data || []).map((m) => {
+      const cats = Array.isArray(m.member_categories)
+        ? m.member_categories.map((mc) => mc.categories).filter(Boolean)
+        : [];
+      // remove member_categories helper property to keep payload tidy
+      const { member_categories, ...rest } = m;
+      return { ...rest, categories: cats };
+    });
+
+    res.status(200).json({ message: members });
+  } catch (err) {
+    console.error("server error (get-all-members-with-categories):", err);
+    return res.status(500).json({ message: "Internal server Error." });
+  }
+});
+
 // app.put('/update-all-members/:id', requireAdminOrSuper, async (req, res) => {
 //   const { id } = req.params;
 //   const {
