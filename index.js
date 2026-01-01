@@ -1842,55 +1842,69 @@ app.get("/get-members-by-industry/:industry_id", async (req, res) => {
 // ==========================
 
 // CREATE Press Release
-// app.post('/add-pressrelease', requireAdminOrSuper, async (req, res) => {
+
+// app.post("/add-pressrelease", requireAdminOrSuper, async (req, res) => {
 //   const { title, pressdate, image } = req.body;
 
 //   if (!title || !pressdate) {
-//     return res.status(400).json({ message: "All fields except image are required." });
+//     return res.status(400).json({ message: "Title & date are required." });
 //   }
 
-//   let image_url = '';
-//   if (image) {
+//   let image_url = "";
+
+//   if (image && image.startsWith("data:image")) {
 //     try {
-//       const base64Data = image.replace(/^data:image\/(png|jpg|jpeg);base64,/, "");
-//       const buffer = Buffer.from(base64Data, 'base64');
-//       const ext = '.jpg';
-//       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2,8)}${ext}`;
+//       const base64Data = image.split(",")[1];
+//       const buffer = Buffer.from(base64Data, "base64");
+
+//       const fileName = `${Date.now()}_${Math.random()
+//         .toString(36)
+//         .substring(2, 8)}.jpg`;
 
 //       const { error: uploadError } = await supabase.storage
-//         .from('pressrelease-images')
-//         .upload(fileName, buffer, { contentType: 'image/jpeg' });
+//         .from("pressrelease-images")
+//         .upload(fileName, buffer, { contentType: "image/jpeg" });
 
 //       if (uploadError) throw uploadError;
 
 //       const { data: publicUrlData } = supabase.storage
-//         .from('pressrelease-images')
+//         .from("pressrelease-images")
 //         .getPublicUrl(fileName);
 
 //       image_url = publicUrlData.publicUrl;
 //     } catch (err) {
-//       return res.status(500).json({ message: 'Image upload error: ' + err.message });
+//       return res
+//         .status(500)
+//         .json({ message: "Image upload error: " + err.message });
 //     }
 //   }
 
 //   try {
-//     const { data, error } = await supabase.from('pressrelease').insert([
-//       { title, pressdate, image_url }
-//     ]);
+//     const { data, error } = await supabase
+//       .from("pressrelease")
+//       .insert({ title, pressdate, image_url }); // <-- FIXED: object only
+
 //     if (error) throw error;
 
-//     res.status(201).json({ message: 'Press release added successfully', pressrelease: data[0] });
+//     res
+//       .status(201)
+//       .json({ message: "Press release added", pressrelease: data });
 //   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ message: "Internal server error: " + err.message });
+//     res.status(500).json({ message: "Internal error: " + err.message });
 //   }
 // });
 
-app.post("/add-pressrelease", requireAdminOrSuper, async (req, res) => {
-  const { title, pressdate, image } = req.body;
 
-  if (!title || !pressdate) {
-    return res.status(400).json({ message: "Title & date are required." });
+app.post("/add-pressrelease", requireAdminOrSuper, async (req, res) => {
+  const { title, pressdate, image, language } = req.body;
+
+  if (!title || !pressdate || !language) {
+    return res.status(400).json({ message: "Title, date & language are required." });
+  }
+
+  const allowedLanguages = ["english", "urdu", "sindhi"];
+  if (!allowedLanguages.includes(language)) {
+    return res.status(400).json({ message: "Invalid language value" });
   }
 
   let image_url = "";
@@ -1916,26 +1930,37 @@ app.post("/add-pressrelease", requireAdminOrSuper, async (req, res) => {
 
       image_url = publicUrlData.publicUrl;
     } catch (err) {
-      return res
-        .status(500)
-        .json({ message: "Image upload error: " + err.message });
+      return res.status(500).json({
+        message: "Image upload error: " + err.message,
+      });
     }
   }
 
   try {
     const { data, error } = await supabase
       .from("pressrelease")
-      .insert({ title, pressdate, image_url }); // <-- FIXED: object only
+      .insert({
+        title,
+        pressdate,
+        image_url,
+        language, // ✅ added
+      });
 
     if (error) throw error;
 
-    res
-      .status(201)
-      .json({ message: "Press release added", pressrelease: data });
+    res.status(201).json({
+      message: "Press release added",
+      pressrelease: data,
+    });
   } catch (err) {
-    res.status(500).json({ message: "Internal error: " + err.message });
+    res.status(500).json({
+      message: "Internal error: " + err.message,
+    });
   }
 });
+
+
+
 
 // READ all Press Releases
 app.get("/get-pressrelease", async (req, res) => {
@@ -1954,64 +1979,66 @@ app.get("/get-pressrelease", async (req, res) => {
   }
 });
 
-// UPDATE Press Release
-// app.put('/update-pressrelease/:id', requireAdminOrSuper, async (req, res) => {
+// app.put("/update-pressrelease/:id", requireAdminOrSuper, async (req, res) => {
 //   const pressId = req.params.id;
 //   const { title, pressdate, image, image_url } = req.body;
 
-//   let updated_image_url = image_url || '';
+//   let finalImageURL = image_url || "";
 
-//   // Handle image upload (if new image is provided)
-//   if (image) {
+//   // Upload new image if provided
+//   if (image && image.startsWith("data:image")) {
 //     try {
-//       const base64Data = image.replace(/^data:image\/(png|jpg|jpeg);base64,/, "");
-//       const buffer = Buffer.from(base64Data, 'base64');
-//       const ext = '.jpg';
-//       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}${ext}`;
+//       const base64Data = image.split(",")[1];
+//       const buffer = Buffer.from(base64Data, "base64");
 
-//       const { error: uploadError } = await supabase.storage
-//         .from('pressrelease-images')
-//         .upload(fileName, buffer, { contentType: 'image/jpeg' });
+//       const fileName = `${Date.now()}_${Math.random()
+//         .toString(36)
+//         .substring(2, 8)}.jpg`;
 
-//       if (uploadError) throw uploadError;
+//       const { error } = await supabase.storage
+//         .from("pressrelease-images")
+//         .upload(fileName, buffer, { contentType: "image/jpeg" });
+
+//       if (error) throw error;
 
 //       const { data: publicUrlData } = supabase.storage
-//         .from('pressrelease-images')
+//         .from("pressrelease-images")
 //         .getPublicUrl(fileName);
 
-//       updated_image_url = publicUrlData.publicUrl;
+//       finalImageURL = publicUrlData.publicUrl;
 //     } catch (err) {
-//       return res.status(500).json({ message: 'Image upload error: ' + err.message });
+//       return res
+//         .status(500)
+//         .json({ message: "Image upload error: " + err.message });
 //     }
 //   }
 
-//   try {
-//     // Build update object dynamically
-//     const updateData = {};
-//     if (title) updateData.title = title;
-//     if (pressdate) updateData.pressdate = pressdate;
-//     if (updated_image_url) updateData.image_url = updated_image_url;
+//   // Prepare update fields
+//   const updateObj = { title, pressdate };
+//   if (finalImageURL) updateObj.image_url = finalImageURL;
 
+//   try {
 //     const { data, error } = await supabase
-//       .from('pressrelease')
-//       .update(updateData)
-//       .eq('id', Number(pressId))
-//       .select();
+//       .from("pressrelease")
+//       .update(updateObj)
+//       .eq("id", pressId);
 
 //     if (error) throw error;
 
-//     res.status(200).json({
-//       message: '✅ Press release updated successfully',
-//       updated: data
-//     });
+//     res.json({ message: "Updated", updated: data });
 //   } catch (err) {
-//     res.status(500).json({ message: 'Error updating press release: ' + err.message });
+//     res.status(500).json({ message: "Error updating: " + err.message });
 //   }
 // });
 
 app.put("/update-pressrelease/:id", requireAdminOrSuper, async (req, res) => {
   const pressId = req.params.id;
-  const { title, pressdate, image, image_url } = req.body;
+  const { title, pressdate, image, image_url, language } = req.body;
+
+  const allowedLanguages = ["english", "urdu", "sindhi"];
+  if (language && !allowedLanguages.includes(language)) {
+    return res.status(400).json({ message: "Invalid language value" });
+  }
 
   let finalImageURL = image_url || "";
 
@@ -2037,15 +2064,16 @@ app.put("/update-pressrelease/:id", requireAdminOrSuper, async (req, res) => {
 
       finalImageURL = publicUrlData.publicUrl;
     } catch (err) {
-      return res
-        .status(500)
-        .json({ message: "Image upload error: " + err.message });
+      return res.status(500).json({
+        message: "Image upload error: " + err.message,
+      });
     }
   }
 
   // Prepare update fields
   const updateObj = { title, pressdate };
   if (finalImageURL) updateObj.image_url = finalImageURL;
+  if (language) updateObj.language = language; // ✅ added
 
   try {
     const { data, error } = await supabase
@@ -2055,11 +2083,17 @@ app.put("/update-pressrelease/:id", requireAdminOrSuper, async (req, res) => {
 
     if (error) throw error;
 
-    res.json({ message: "Updated", updated: data });
+    res.json({
+      message: "Updated",
+      updated: data,
+    });
   } catch (err) {
-    res.status(500).json({ message: "Error updating: " + err.message });
+    res.status(500).json({
+      message: "Error updating: " + err.message,
+    });
   }
 });
+
 
 // DELETE Press Release
 app.delete("/delete-pressrelease/:id", requireSuper, async (req, res) => {
