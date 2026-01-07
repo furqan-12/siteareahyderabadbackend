@@ -2248,57 +2248,21 @@ app.put("/update-notification/:id", requireAdminOrSuper, async (req, res) => {
 });
 
 // delete notification api
-app.put("/update-notification/:id", requireAdminOrSuper, async (req, res) => {
+app.delete("/delete-notification/:id", requireAdminOrSuper, async (req, res) => {
   const notificationId = req.params.id;
-  const { title, notificationdate, image, image_url } = req.body;
-
-  let finalImageURL = image_url || "";
-
-  if (image && image.startsWith("data:image")) {
-    try {
-      const base64Data = image.split(",")[1];
-      const buffer = Buffer.from(base64Data, "base64");
-
-      const fileName = `${Date.now()}_${Math.random()
-        .toString(36)
-        .substring(2, 8)}.jpg`;
-
-      const { error } = await supabase.storage
-        .from("notification-images")
-        .upload(fileName, buffer, { contentType: "image/jpeg" });
-
-      if (error) throw error;
-
-      const { data: publicUrlData } = supabase.storage
-        .from("notification-images")
-        .getPublicUrl(fileName);
-
-      finalImageURL = publicUrlData.publicUrl;
-    } catch (err) {
-      return res.status(500).json({
-        message: "Image upload error: " + err.message,
-      });
-    }
-  }
-
-  const updateObj = { title, notificationdate };
-  if (finalImageURL) updateObj.image_url = finalImageURL;
 
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("notifications")
-      .update(updateObj)
+      .delete()
       .eq("id", notificationId);
 
     if (error) throw error;
 
-    res.json({
-      message: "Notification updated",
-      updated: data,
-    });
+    res.json({ message: "Notification deleted" });
   } catch (err) {
     res.status(500).json({
-      message: "Error updating notification",
+      message: "Error deleting notification",
     });
   }
 });
