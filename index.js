@@ -2114,6 +2114,195 @@ app.delete("/delete-pressrelease/:id", requireSuper, async (req, res) => {
   }
 });
 
+
+// notifications apis start from here
+// add notification api 
+app.post("/add-notification", requireAdminOrSuper, async (req, res) => {
+  const { title, notificationdate, image } = req.body;
+
+  if (!title || !notificationdate) {
+    return res.status(400).json({ message: "Title & date are required." });
+  }
+
+  let image_url = "";
+
+  if (image && image.startsWith("data:image")) {
+    try {
+      const base64Data = image.split(",")[1];
+      const buffer = Buffer.from(base64Data, "base64");
+
+      const fileName = `${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(2, 8)}.jpg`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("notification-images")
+        .upload(fileName, buffer, { contentType: "image/jpeg" });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from("notification-images")
+        .getPublicUrl(fileName);
+
+      image_url = publicUrlData.publicUrl;
+    } catch (err) {
+      return res.status(500).json({
+        message: "Image upload error: " + err.message,
+      });
+    }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("notifications")
+      .insert({ title, notificationdate, image_url });
+
+    if (error) throw error;
+
+    res.status(201).json({
+      message: "Notification added",
+      notification: data,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Internal error: " + err.message,
+    });
+  }
+});
+
+// get notification apis 
+
+app.get("/notifications", async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("notifications")
+      .select("*")
+      .order("notificationdate", { ascending: false });
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({
+      message: "Error fetching notifications",
+    });
+  }
+});
+
+// update notification api
+
+app.put("/update-notification/:id", requireAdminOrSuper, async (req, res) => {
+  const notificationId = req.params.id;
+  const { title, notificationdate, image, image_url } = req.body;
+
+  let finalImageURL = image_url || "";
+
+  if (image && image.startsWith("data:image")) {
+    try {
+      const base64Data = image.split(",")[1];
+      const buffer = Buffer.from(base64Data, "base64");
+
+      const fileName = `${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(2, 8)}.jpg`;
+
+      const { error } = await supabase.storage
+        .from("notification-images")
+        .upload(fileName, buffer, { contentType: "image/jpeg" });
+
+      if (error) throw error;
+
+      const { data: publicUrlData } = supabase.storage
+        .from("notification-images")
+        .getPublicUrl(fileName);
+
+      finalImageURL = publicUrlData.publicUrl;
+    } catch (err) {
+      return res.status(500).json({
+        message: "Image upload error: " + err.message,
+      });
+    }
+  }
+
+  const updateObj = { title, notificationdate };
+  if (finalImageURL) updateObj.image_url = finalImageURL;
+
+  try {
+    const { data, error } = await supabase
+      .from("notifications")
+      .update(updateObj)
+      .eq("id", notificationId);
+
+    if (error) throw error;
+
+    res.json({
+      message: "Notification updated",
+      updated: data,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Error updating notification",
+    });
+  }
+});
+
+// delete notification api
+app.put("/update-notification/:id", requireAdminOrSuper, async (req, res) => {
+  const notificationId = req.params.id;
+  const { title, notificationdate, image, image_url } = req.body;
+
+  let finalImageURL = image_url || "";
+
+  if (image && image.startsWith("data:image")) {
+    try {
+      const base64Data = image.split(",")[1];
+      const buffer = Buffer.from(base64Data, "base64");
+
+      const fileName = `${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(2, 8)}.jpg`;
+
+      const { error } = await supabase.storage
+        .from("notification-images")
+        .upload(fileName, buffer, { contentType: "image/jpeg" });
+
+      if (error) throw error;
+
+      const { data: publicUrlData } = supabase.storage
+        .from("notification-images")
+        .getPublicUrl(fileName);
+
+      finalImageURL = publicUrlData.publicUrl;
+    } catch (err) {
+      return res.status(500).json({
+        message: "Image upload error: " + err.message,
+      });
+    }
+  }
+
+  const updateObj = { title, notificationdate };
+  if (finalImageURL) updateObj.image_url = finalImageURL;
+
+  try {
+    const { data, error } = await supabase
+      .from("notifications")
+      .update(updateObj)
+      .eq("id", notificationId);
+
+    if (error) throw error;
+
+    res.json({
+      message: "Notification updated",
+      updated: data,
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: "Error updating notification",
+    });
+  }
+});
+
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
