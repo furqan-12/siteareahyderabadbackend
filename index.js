@@ -1493,68 +1493,152 @@ app.delete("/delete-clean/:id", requireSuper, async (req, res) => {
   }
 });
 
+
+
+
 app.put("/update-clean/:id", requireAdminOrSuper, async (req, res) => {
   const updatedcleanid = req.params.id;
-  const { title, image, image_url } = req.body;
-  let updated_image_url = image_url || "";
-  if (image && image.startsWith("data:image")) {
-    try {
+  const { title, image } = req.body;
+
+  try {
+    // 1️⃣ get existing image
+    const { data: existingRow, error: fetchError } = await supabase
+      .from("clean_green_cards")
+      .select("cleanimage")
+      .eq("id", updatedcleanid)
+      .single();
+
+    if (fetchError) {
+      return res.status(404).json({ message: "Record not found" });
+    }
+
+    let updated_image_url = existingRow.cleanimage;
+
+    // 2️⃣ upload new image only if provided
+    if (image && image.startsWith("data:image")) {
       const match = image.match(/^data:image\/(png|jpg|jpeg);base64,/);
       let ext = ".jpg";
       let contentType = "image/jpeg";
-      if (match) {
-        if (match[1] === "png") {
-          ext = ".png";
-          contentType = "image/png";
-        }
+
+      if (match && match[1] === "png") {
+        ext = ".png";
+        contentType = "image/png";
       }
+
       const base64Data = image.replace(
         /^data:image\/(png|jpg|jpeg);base64,/,
         ""
       );
+
       const buffer = Buffer.from(base64Data, "base64");
       const fileName = `${Date.now()}_${Math.random()
         .toString(36)
         .substring(2, 8)}${ext}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
+
+      const { error: uploadError } = await supabase.storage
         .from("clean-green-images")
         .upload(fileName, buffer, { contentType });
+
       if (uploadError) {
         return res
           .status(500)
           .json({ message: "Image upload failed: " + uploadError.message });
       }
+
       const { data: publicUrlData } = supabase.storage
         .from("clean-green-images")
         .getPublicUrl(fileName);
+
       updated_image_url = publicUrlData.publicUrl;
-    } catch (err) {
-      return res
-        .status(500)
-        .json({ message: "Image upload error: " + err.message });
     }
-  }
-  try {
+
+    // 3️⃣ update
     const { data, error } = await supabase
       .from("clean_green_cards")
       .update({
         title,
         cleanimage: updated_image_url,
       })
-      .eq("id", updatedcleanid);
+      .eq("id", updatedcleanid)
+      .select();
+
     if (error) {
       return res.status(400).json({ message: error.message });
     }
-    res
-      .status(200)
-      .json({
-        message: "Successfully updated cleaning data",
-        member: data && data[0],
-      });
-  } catch (error) {
+
+    res.status(200).json({
+      message: "Successfully updated cleaning data",
+      data: data[0],
+    });
+  } catch (err) {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+
+// app.put("/update-clean/:id", requireAdminOrSuper, async (req, res) => {
+//   const updatedcleanid = req.params.id;
+//   const { title, image, image_url } = req.body;
+//   let updated_image_url = image_url || "";
+//   if (image && image.startsWith("data:image")) {
+//     try {
+//       const match = image.match(/^data:image\/(png|jpg|jpeg);base64,/);
+//       let ext = ".jpg";
+//       let contentType = "image/jpeg";
+//       if (match) {
+//         if (match[1] === "png") {
+//           ext = ".png";
+//           contentType = "image/png";
+//         }
+//       }
+//       const base64Data = image.replace(
+//         /^data:image\/(png|jpg|jpeg);base64,/,
+//         ""
+//       );
+//       const buffer = Buffer.from(base64Data, "base64");
+//       const fileName = `${Date.now()}_${Math.random()
+//         .toString(36)
+//         .substring(2, 8)}${ext}`;
+//       const { data: uploadData, error: uploadError } = await supabase.storage
+//         .from("clean-green-images")
+//         .upload(fileName, buffer, { contentType });
+//       if (uploadError) {
+//         return res
+//           .status(500)
+//           .json({ message: "Image upload failed: " + uploadError.message });
+//       }
+//       const { data: publicUrlData } = supabase.storage
+//         .from("clean-green-images")
+//         .getPublicUrl(fileName);
+//       updated_image_url = publicUrlData.publicUrl;
+//     } catch (err) {
+//       return res
+//         .status(500)
+//         .json({ message: "Image upload error: " + err.message });
+//     }
+//   }
+//   try {
+    
+//     const { data, error } = await supabase
+//       .from("clean_green_cards")
+//       .update({
+//         title,
+//         cleanimage: updated_image_url,
+//       })
+//       .eq("id", updatedcleanid);
+//     if (error) {
+//       return res.status(400).json({ message: error.message });
+//     }
+//     res
+//       .status(200)
+//       .json({
+//         message: "Successfully updated cleaning data",
+//         member: data && data[0],
+//       });
+//   } catch (error) {
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// });
 
 app.get("/members-categories", async (req, res) => {
   try {
