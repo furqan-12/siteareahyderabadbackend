@@ -493,60 +493,133 @@ app.delete("/delete-event/:id", requireSuper, async (req, res) => {
   }
 });
 
+
+
 app.put("/update-event/:id", requireAdminOrSuper, async (req, res) => {
   const eventId = req.params.id;
-  const { title, eventdate, image, image_url } = req.body;
+  const { title, eventdate, image } = req.body;
 
-  let updated_image_url = image_url || "";
-  if (image) {
-    try {
+  try {
+    // 1️⃣ get existing event
+    const { data: existingEvent, error: fetchError } = await supabase
+      .from("events")
+      .select("image_url")
+      .eq("id", eventId)
+      .single();
+
+    if (fetchError || !existingEvent) {
+      return res.status(404).json({ message: "Event not found" });
+    }
+
+    // 2️⃣ default = old image
+    let updated_image_url = existingEvent.image_url;
+
+    // 3️⃣ upload only if new image comes
+    if (image && image.startsWith("data:image")) {
       const base64Data = image.replace(
         /^data:image\/(png|jpg|jpeg);base64,/,
         ""
       );
       const buffer = Buffer.from(base64Data, "base64");
-      const ext = ".jpg";
+
       const fileName = `${Date.now()}_${Math.random()
         .toString(36)
-        .substring(2, 8)}${ext}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
+        .substring(2, 8)}.jpg`;
+
+      const { error: uploadError } = await supabase.storage
         .from("events-images")
-        .upload(fileName, buffer, {
-          contentType: "image/jpeg",
-        });
+        .upload(fileName, buffer, { contentType: "image/jpeg" });
+
       if (uploadError) {
         return res
           .status(500)
           .json({ message: "Image upload failed: " + uploadError.message });
       }
+
       const { data: publicUrlData } = supabase.storage
         .from("events-images")
         .getPublicUrl(fileName);
-      updated_image_url = publicUrlData.publicUrl;
-    } catch (err) {
-      return res
-        .status(500)
-        .json({ message: "Image upload error: " + err.message });
-    }
-  }
 
-  try {
-    const { error } = await supabase
+      updated_image_url = publicUrlData.publicUrl;
+    }
+
+    // 4️⃣ update safely
+    const { error: updateError } = await supabase
       .from("events")
-      .update({ title, eventdate, image_url: updated_image_url })
+      .update({
+        title,
+        eventdate,
+        image_url: updated_image_url,
+      })
       .eq("id", eventId);
-    if (error) {
-      console.error("Supabase Error:", error);
+
+    if (updateError) {
       return res
         .status(500)
-        .json({ message: "Error updating member: " + error.message });
+        .json({ message: "Update failed: " + updateError.message });
     }
-    res.status(200).json({ message: "event updated successfully" });
+
+    res.status(200).json({ message: "✅ Event updated successfully" });
   } catch (err) {
-    console.error("Server Error:", err);
-    res.status(500).json({ message: "Server error while updating member" });
+    console.error(err);
+    res.status(500).json({ message: "Internal server error" });
   }
 });
+
+// app.put("/update-event/:id", requireAdminOrSuper, async (req, res) => {
+//   const eventId = req.params.id;
+//   const { title, eventdate, image, image_url } = req.body;
+
+//   let updated_image_url = image_url || "";
+//   if (image) {
+//     try {
+//       const base64Data = image.replace(
+//         /^data:image\/(png|jpg|jpeg);base64,/,
+//         ""
+//       );
+//       const buffer = Buffer.from(base64Data, "base64");
+//       const ext = ".jpg";
+//       const fileName = `${Date.now()}_${Math.random()
+//         .toString(36)
+//         .substring(2, 8)}${ext}`;
+//       const { data: uploadData, error: uploadError } = await supabase.storage
+//         .from("events-images")
+//         .upload(fileName, buffer, {
+//           contentType: "image/jpeg",
+//         });
+//       if (uploadError) {
+//         return res
+//           .status(500)
+//           .json({ message: "Image upload failed: " + uploadError.message });
+//       }
+//       const { data: publicUrlData } = supabase.storage
+//         .from("events-images")
+//         .getPublicUrl(fileName);
+//       updated_image_url = publicUrlData.publicUrl;
+//     } catch (err) {
+//       return res
+//         .status(500)
+//         .json({ message: "Image upload error: " + err.message });
+//     }
+//   }
+
+//   try {
+//     const { error } = await supabase
+//       .from("events")
+//       .update({ title, eventdate, image_url: updated_image_url })
+//       .eq("id", eventId);
+//     if (error) {
+//       console.error("Supabase Error:", error);
+//       return res
+//         .status(500)
+//         .json({ message: "Error updating member: " + error.message });
+//     }
+//     res.status(200).json({ message: "event updated successfully" });
+//   } catch (err) {
+//     console.error("Server Error:", err);
+//     res.status(500).json({ message: "Server error while updating member" });
+//   }
+// });
 // event apis end here
 
 // circular apis start from here
