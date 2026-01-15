@@ -2544,14 +2544,29 @@ app.get("/notifications", async (req, res) => {
 
 // update notification api
 
+
+
 app.put("/update-notification/:id", requireAdminOrSuper, async (req, res) => {
   const notificationId = req.params.id;
-  const { title, notificationdate, image, image_url } = req.body;
+  const { title, notificationdate, image } = req.body;
 
-  let finalImageURL = image_url || "";
+  try {
+    // 1️⃣ get existing notification image
+    const { data: existing, error: fetchError } = await supabase
+      .from("notifications")
+      .select("image_url")
+      .eq("id", notificationId)
+      .single();
 
-  if (image && image.startsWith("data:image")) {
-    try {
+    if (fetchError || !existing) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
+
+    // 2️⃣ default = old image
+    let finalImageURL = existing.image_url;
+
+    // 3️⃣ upload only if base64 image comes
+    if (image && image.startsWith("data:image")) {
       const base64Data = image.split(",")[1];
       const buffer = Buffer.from(base64Data, "base64");
 
@@ -2559,45 +2574,101 @@ app.put("/update-notification/:id", requireAdminOrSuper, async (req, res) => {
         .toString(36)
         .substring(2, 8)}.jpg`;
 
-      const { error } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("notification-images")
         .upload(fileName, buffer, { contentType: "image/jpeg" });
 
-      if (error) throw error;
+      if (uploadError) {
+        return res.status(500).json({
+          message: "Image upload error: " + uploadError.message,
+        });
+      }
 
       const { data: publicUrlData } = supabase.storage
         .from("notification-images")
         .getPublicUrl(fileName);
 
       finalImageURL = publicUrlData.publicUrl;
-    } catch (err) {
-      return res.status(500).json({
-        message: "Image upload error: " + err.message,
-      });
     }
-  }
 
-  const updateObj = { title, notificationdate };
-  if (finalImageURL) updateObj.image_url = finalImageURL;
-
-  try {
+    // 4️⃣ update safely
     const { data, error } = await supabase
       .from("notifications")
-      .update(updateObj)
+      .update({
+        title,
+        notificationdate,
+        image_url: finalImageURL,
+      })
       .eq("id", notificationId);
 
     if (error) throw error;
 
     res.json({
-      message: "Notification updated",
+      message: "✅ Notification updated successfully",
       updated: data,
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({
       message: "Error updating notification",
     });
   }
 });
+
+// app.put("/update-notification/:id", requireAdminOrSuper, async (req, res) => {
+//   const notificationId = req.params.id;
+//   const { title, notificationdate, image, image_url } = req.body;
+
+//   let finalImageURL = image_url || "";
+
+//   if (image && image.startsWith("data:image")) {
+//     try {
+//       const base64Data = image.split(",")[1];
+//       const buffer = Buffer.from(base64Data, "base64");
+
+//       const fileName = `${Date.now()}_${Math.random()
+//         .toString(36)
+//         .substring(2, 8)}.jpg`;
+
+//       const { error } = await supabase.storage
+//         .from("notification-images")
+//         .upload(fileName, buffer, { contentType: "image/jpeg" });
+
+//       if (error) throw error;
+
+//       const { data: publicUrlData } = supabase.storage
+//         .from("notification-images")
+//         .getPublicUrl(fileName);
+
+//       finalImageURL = publicUrlData.publicUrl;
+//     } catch (err) {
+//       return res.status(500).json({
+//         message: "Image upload error: " + err.message,
+//       });
+//     }
+//   }
+
+//   const updateObj = { title, notificationdate };
+//   if (finalImageURL) updateObj.image_url = finalImageURL;
+
+//   try {
+//     const { data, error } = await supabase
+//       .from("notifications")
+//       .update(updateObj)
+//       .eq("id", notificationId);
+
+//     if (error) throw error;
+
+//     res.json({
+//       message: "Notification updated",
+//       updated: data,
+//     });
+//   } catch (err) {
+//     res.status(500).json({
+//       message: "Error updating notification",
+//     });
+//   }
+// });
 
 // delete notification api
 app.delete("/delete-notification/:id", requireAdminOrSuper, async (req, res) => {
