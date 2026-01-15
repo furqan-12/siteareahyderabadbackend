@@ -1329,8 +1329,10 @@ app.get("/get-all-members-with-categories", async (req, res) => {
 //   }
 // });
 
+
 app.put("/update-all-members/:id", requireAdminOrSuper, async (req, res) => {
   const { id } = req.params;
+
   const {
     member_code,
     company,
@@ -1347,34 +1349,43 @@ app.put("/update-all-members/:id", requireAdminOrSuper, async (req, res) => {
     website,
     join_date,
     active,
-    file_url,
     name,
     designation,
     companyaddress,
-    image, // base64 string
-    industry_id, // 👈 new field added
+    image,
+    industry_id,
   } = req.body;
 
-  let updated_file_url = file_url || "";
+  try {
+    // 1️⃣ fetch existing member image
+    const { data: existingMember, error: fetchError } = await supabase
+      .from("allmembers")
+      .select("file_url")
+      .eq("id", parseInt(id))
+      .single();
 
-  // ✅ Upload new image if base64 provided
-  if (image) {
-    try {
+    if (fetchError || !existingMember) {
+      return res.status(404).json({ message: "Member not found" });
+    }
+
+    // 2️⃣ default = old image
+    let updated_file_url = existingMember.file_url;
+
+    // 3️⃣ upload only if new image comes
+    if (image && image.startsWith("data:image")) {
       const base64Data = image.replace(
         /^data:image\/(png|jpg|jpeg);base64,/,
         ""
       );
       const buffer = Buffer.from(base64Data, "base64");
-      const ext = ".jpg";
+
       const fileName = `${Date.now()}_${Math.random()
         .toString(36)
-        .substring(2, 8)}${ext}`;
+        .substring(2, 8)}.jpg`;
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("members-images")
-        .upload(fileName, buffer, {
-          contentType: "image/jpeg",
-        });
+        .upload(fileName, buffer, { contentType: "image/jpeg" });
 
       if (uploadError) {
         return res
@@ -1387,14 +1398,9 @@ app.put("/update-all-members/:id", requireAdminOrSuper, async (req, res) => {
         .getPublicUrl(fileName);
 
       updated_file_url = publicUrlData.publicUrl;
-    } catch (err) {
-      return res
-        .status(500)
-        .json({ message: "Image upload error: " + err.message });
     }
-  }
 
-  try {
+    // 4️⃣ update safely
     const { data, error } = await supabase
       .from("allmembers")
       .update({
@@ -1417,9 +1423,9 @@ app.put("/update-all-members/:id", requireAdminOrSuper, async (req, res) => {
         name,
         designation,
         companyaddress,
-        industry_id, // 👈 included in update
+        industry_id,
       })
-      .eq("id", parseInt(id)); // make sure id is numeric
+      .eq("id", parseInt(id));
 
     if (error) {
       console.error("Supabase error:", error);
@@ -1427,7 +1433,7 @@ app.put("/update-all-members/:id", requireAdminOrSuper, async (req, res) => {
     }
 
     res.status(200).json({
-      message: "Member updated successfully",
+      message: "✅ Member updated successfully",
       member: data && data[0] ? data[0] : null,
     });
   } catch (err) {
@@ -1435,6 +1441,114 @@ app.put("/update-all-members/:id", requireAdminOrSuper, async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+
+// app.put("/update-all-members/:id", requireAdminOrSuper, async (req, res) => {
+//   const { id } = req.params;
+//   const {
+//     member_code,
+//     company,
+//     first_name,
+//     last_name,
+//     office_address,
+//     office_address_doc,
+//     nature_of_business,
+//     phoneno,
+//     company_ntn,
+//     sales_tax_reg,
+//     fax_no,
+//     email,
+//     website,
+//     join_date,
+//     active,
+//     file_url,
+//     name,
+//     designation,
+//     companyaddress,
+//     image, // base64 string
+//     industry_id, // 👈 new field added
+//   } = req.body;
+
+//   let updated_file_url = file_url || "";
+
+//   // ✅ Upload new image if base64 provided
+//   if (image) {
+//     try {
+//       const base64Data = image.replace(
+//         /^data:image\/(png|jpg|jpeg);base64,/,
+//         ""
+//       );
+//       const buffer = Buffer.from(base64Data, "base64");
+//       const ext = ".jpg";
+//       const fileName = `${Date.now()}_${Math.random()
+//         .toString(36)
+//         .substring(2, 8)}${ext}`;
+
+//       const { data: uploadData, error: uploadError } = await supabase.storage
+//         .from("members-images")
+//         .upload(fileName, buffer, {
+//           contentType: "image/jpeg",
+//         });
+
+//       if (uploadError) {
+//         return res
+//           .status(500)
+//           .json({ message: "Image upload failed: " + uploadError.message });
+//       }
+
+//       const { data: publicUrlData } = supabase.storage
+//         .from("members-images")
+//         .getPublicUrl(fileName);
+
+//       updated_file_url = publicUrlData.publicUrl;
+//     } catch (err) {
+//       return res
+//         .status(500)
+//         .json({ message: "Image upload error: " + err.message });
+//     }
+//   }
+
+//   try {
+//     const { data, error } = await supabase
+//       .from("allmembers")
+//       .update({
+//         member_code,
+//         company,
+//         first_name,
+//         last_name,
+//         office_address,
+//         office_address_doc,
+//         nature_of_business,
+//         phoneno,
+//         company_ntn,
+//         sales_tax_reg,
+//         fax_no,
+//         email,
+//         website,
+//         join_date,
+//         active,
+//         file_url: updated_file_url,
+//         name,
+//         designation,
+//         companyaddress,
+//         industry_id, // 👈 included in update
+//       })
+//       .eq("id", parseInt(id)); // make sure id is numeric
+
+//     if (error) {
+//       console.error("Supabase error:", error);
+//       return res.status(500).json({ message: error.message });
+//     }
+
+//     res.status(200).json({
+//       message: "Member updated successfully",
+//       member: data && data[0] ? data[0] : null,
+//     });
+//   } catch (err) {
+//     console.error("Update error:", err);
+//     res.status(500).json({ message: "Internal server error" });
+//   }
+// });
 // here apis end update api
 
 app.delete("/delete-all-members/:id", requireSuper, async (req, res) => {
