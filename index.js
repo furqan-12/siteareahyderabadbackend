@@ -307,11 +307,20 @@ app.delete("/delete-member/:id", requireSuper, async (req, res) => {
 });
 
 app.put("/update-member/:id", requireAdminOrSuper, async (req, res) => {
-  const memberId = req.params.id;
-  const { name, designation, email, phone, company_address, image, image_url } =
-    req.body;
-  // Preserve existing image if frontend doesn't send a new image or an image_url
-  let updated_image_url = image_url; // undefined if not sent
+  try {
+    const memberId = req.params.id;
+    const { name, designation, email, phone, company_address, image, image_url } =
+      req.body;
+
+    // Validate required fields
+    if (!name || !designation || !email || !phone || !company_address) {
+      return res.status(400).json({ 
+        message: "Name, designation, email, phone, aur company address required hain." 
+      });
+    }
+
+    // Preserve existing image if frontend doesn't send a new image or an image_url
+    let updated_image_url = image_url; // undefined if not sent
 
   // If neither a new base64 `image` nor an `image_url` was provided, fetch existing image_url
   if (!image && !image_url) {
@@ -371,7 +380,6 @@ app.put("/update-member/:id", requireAdminOrSuper, async (req, res) => {
     }
   }
 
-  try {
     const { error } = await supabase
       .from("members")
       .update({
@@ -390,7 +398,10 @@ app.put("/update-member/:id", requireAdminOrSuper, async (req, res) => {
     }
     res.status(200).json({ message: "Member updated successfully" });
   } catch (err) {
-    res.status(500).json({ message: "Server error while updating member" });
+    console.error("Update member error:", err);
+    res.status(500).json({ 
+      message: "Server error while updating member: " + (err.message || "Unknown error") 
+    });
   }
 });
 // members apis end here
