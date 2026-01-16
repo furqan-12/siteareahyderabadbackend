@@ -2566,10 +2566,24 @@ app.get("/notifications", async (req, res) => {
 
 
 app.put("/update-notification/:id", requireAdminOrSuper, async (req, res) => {
-  const notificationId = req.params.id;
+  const notificationId = parseInt(req.params.id);
   const { title, notificationdate, image } = req.body;
 
   try {
+    // Validate notification ID
+    if (isNaN(notificationId)) {
+      return res.status(400).json({
+        message: "Invalid notification ID",
+      });
+    }
+
+    // Validate required fields
+    if (!title || !notificationdate) {
+      return res.status(400).json({
+        message: "Title aur notificationdate required hain.",
+      });
+    }
+
     // Ensure image is a string before using startsWith
     const imageString = (typeof image === "string") ? image : null;
 
@@ -2589,28 +2603,48 @@ app.put("/update-notification/:id", requireAdminOrSuper, async (req, res) => {
 
     // 3️⃣ upload only if base64 image comes (with type check)
     if (imageString && imageString.startsWith("data:image")) {
-      const base64Data = imageString.split(",")[1];
-      const buffer = Buffer.from(base64Data, "base64");
+      try {
+        // Extract base64 data (after comma)
+        const parts = imageString.split(",");
+        if (parts.length < 2) {
+          return res.status(400).json({
+            message: "Invalid image format: base64 data missing",
+          });
+        }
+        const base64Data = parts[1];
+        if (!base64Data || base64Data.length === 0) {
+          return res.status(400).json({
+            message: "Invalid image format: empty base64 data",
+          });
+        }
+        const buffer = Buffer.from(base64Data, "base64");
 
       const fileName = `${Date.now()}_${Math.random()
         .toString(36)
         .substring(2, 8)}.jpg`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("notification-images")
-        .upload(fileName, buffer, { contentType: "image/jpeg" });
+        const { error: uploadError } = await supabase.storage
+          .from("notification-images")
+          .upload(fileName, buffer, { contentType: "image/jpeg" });
 
-      if (uploadError) {
+        if (uploadError) {
+          console.error("Supabase upload error:", uploadError);
+          return res.status(500).json({
+            message: "Image upload error: " + uploadError.message,
+          });
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("notification-images")
+          .getPublicUrl(fileName);
+
+        finalImageURL = publicUrlData.publicUrl;
+      } catch (imgErr) {
+        console.error("Image processing error:", imgErr);
         return res.status(500).json({
-          message: "Image upload error: " + uploadError.message,
+          message: "Image processing error: " + (imgErr.message || "Unknown error"),
         });
       }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("notification-images")
-        .getPublicUrl(fileName);
-
-      finalImageURL = publicUrlData.publicUrl;
     }
 
     // 4️⃣ update safely
@@ -2619,20 +2653,25 @@ app.put("/update-notification/:id", requireAdminOrSuper, async (req, res) => {
       .update({
         title,
         notificationdate,
-        image_url: finalImageURL,
+        image_url: finalImageURL || null,
       })
       .eq("id", notificationId);
 
-    if (error) throw error;
+    if (error) {
+      console.error("Supabase update error:", error);
+      return res.status(500).json({
+        message: "Error updating notification: " + error.message,
+      });
+    }
 
     res.json({
       message: "✅ Notification updated successfully",
       updated: data,
     });
   } catch (err) {
-    console.error(err);
+    console.error("Update notification error:", err);
     res.status(500).json({
-      message: "Error updating notification",
+      message: "Error updating notification: " + (err.message || "Unknown error"),
     });
   }
 });
