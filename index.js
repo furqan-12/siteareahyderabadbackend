@@ -319,11 +319,15 @@ app.put("/update-member/:id", requireAdminOrSuper, async (req, res) => {
       });
     }
 
-    // Preserve existing image if frontend doesn't send a new image or an image_url
-    let updated_image_url = image_url; // undefined if not sent
+    // Ensure image is a string or undefined/null (not object or other type)
+    const imageString = (typeof image === "string") ? image : null;
+    const imageUrlString = (typeof image_url === "string") ? image_url : null;
 
-  // If neither a new base64 `image` nor an `image_url` was provided, fetch existing image_url
-  if (!image && !image_url) {
+    // Preserve existing image if frontend doesn't send a new image or an image_url
+    let updated_image_url = imageUrlString || null; // null if not sent
+
+    // If neither a new base64 `image` nor an `image_url` was provided, fetch existing image_url
+    if (!imageString && !imageUrlString) {
     try {
       const { data: existingMember, error: fetchError } = await supabase
         .from("members")
@@ -342,9 +346,10 @@ app.put("/update-member/:id", requireAdminOrSuper, async (req, res) => {
     }
   }
 
-  if (image && image.startsWith("data:image")) {
+  // Check if image is a valid string before using startsWith
+  if (imageString && imageString.startsWith("data:image")) {
     try {
-      const match = image.match(/^data:image\/(png|jpg|jpeg);base64,/);
+      const match = imageString.match(/^data:image\/(png|jpg|jpeg);base64,/);
       let ext = ".jpg";
       let contentType = "image/jpeg";
       if (match) {
@@ -353,7 +358,7 @@ app.put("/update-member/:id", requireAdminOrSuper, async (req, res) => {
           contentType = "image/png";
         }
       }
-      const base64Data = image.replace(
+      const base64Data = imageString.replace(
         /^data:image\/(png|jpg|jpeg);base64,/,
         ""
       );
