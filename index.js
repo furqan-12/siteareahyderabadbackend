@@ -2494,9 +2494,12 @@ app.post("/add-notification", requireAdminOrSuper, async (req, res) => {
 
   let image_url = "";
 
-  if (image && image.startsWith("data:image")) {
+  // Ensure image is a string before using startsWith
+  const imageString = (typeof image === "string") ? image : null;
+
+  if (imageString && imageString.startsWith("data:image")) {
     try {
-      const base64Data = image.split(",")[1];
+      const base64Data = imageString.split(",")[1];
       const buffer = Buffer.from(base64Data, "base64");
 
       const fileName = `${Date.now()}_${Math.random()
@@ -2567,6 +2570,9 @@ app.put("/update-notification/:id", requireAdminOrSuper, async (req, res) => {
   const { title, notificationdate, image } = req.body;
 
   try {
+    // Ensure image is a string before using startsWith
+    const imageString = (typeof image === "string") ? image : null;
+
     // 1️⃣ get existing notification image
     const { data: existing, error: fetchError } = await supabase
       .from("notifications")
@@ -2581,9 +2587,9 @@ app.put("/update-notification/:id", requireAdminOrSuper, async (req, res) => {
     // 2️⃣ default = old image
     let finalImageURL = existing.image_url;
 
-    // 3️⃣ upload only if base64 image comes
-    if (image && image.startsWith("data:image")) {
-      const base64Data = image.split(",")[1];
+    // 3️⃣ upload only if base64 image comes (with type check)
+    if (imageString && imageString.startsWith("data:image")) {
+      const base64Data = imageString.split(",")[1];
       const buffer = Buffer.from(base64Data, "base64");
 
       const fileName = `${Date.now()}_${Math.random()
